@@ -62,11 +62,7 @@ RUN \
 # bother figuring out). Fortunately we only need it to actually download the source and its dependencies
 # so we can do this in a place with glibc, and then pass the results on to an alpine builder.
 #
-FROM debian:9 as source
-
-# The V8 version we want to use. It's assumed that this will be a version tag, but it's just
-# used as "git commit $V8_VERSION" so anything that git can resolve will work.
-ARG V8_VERSION=5.7.441.1
+FROM debian as source
 
 RUN \
   set -x && \
@@ -84,7 +80,6 @@ RUN \
   cd /tmp && \
   fetch v8 && \
   cd /tmp/v8 && \
-  git checkout ${V8_VERSION} && \
   gclient sync && \
 
   # cleanup
