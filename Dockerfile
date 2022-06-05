@@ -22,7 +22,7 @@ FROM alpine:latest as gn-builder
 
 # This is the GN commit that we want to build. Most commits will probably build just fine but
 # this happened to be the latest commit when I did this.
-ARG GN_COMMIT=d7111cb6877187d1f378bd231e14ffdd5fdd87ae
+ARG GN_COMMIT=37baefb026b199605affa7bcb24810d1724ce373
 
 RUN \
   apk add --update --virtual .gn-build-dependencies \
