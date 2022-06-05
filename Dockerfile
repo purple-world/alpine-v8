@@ -100,7 +100,7 @@ COPY --from=source /tmp/v8 /tmp/v8
 COPY --from=gn-builder /usr/local/bin/gn /tmp/v8/buildtools/linux64/gn
 
 RUN \
-  apk add --update --virtual .v8-build-dependencies \
+  apk add --update --no-cache .v8-build-dependencies \
     curl \
     g++ \
     gcc \
@@ -110,10 +110,10 @@ RUN \
     linux-headers \
     make \
     ninja \
-    python \
+    python3 \
     tar \
     xz \
-
+  && ln -sf python3 /usr/bin/python \
   # Configure our V8 build
   && cd /tmp/v8 && \
   ./tools/dev/v8gen.py x64.release -- \
