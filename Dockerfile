@@ -1,7 +1,3 @@
-#
-# Author: Tyler Christensen
-# URL: https://gist.github.com/tylerchr/15a74b05944cfb90729db6a51265b6c9
-#
 # Building V8 for alpine is a real pain. We have to compile from source, because it has to be
 # linked against musl, and we also have to recompile some of the build tools as the official
 # build workflow tends to assume glibc by including vendored tools that link against it.
@@ -24,36 +20,21 @@ FROM alpine:latest as gn-builder
 # this happened to be the latest commit when I did this.
 ARG GN_COMMIT=37baefb026b199605affa7bcb24810d1724ce373
 
-RUN \
-  apk add --update --virtual .gn-build-dependencies \
-    alpine-sdk \
-    binutils-gold \
-    clang \
-    curl \
-    git \
-    llvm4 \
-    ninja \
-    python \
-    tar \
-    xz \
-
-  # Two quick fixes: we need the LLVM tooling in $PATH, and we
-  # also have to use gold instead of ld.
-  && PATH=$PATH:/usr/lib/llvm4/bin \
-  && cp -f /usr/bin/ld.gold /usr/bin/ld \
-
-  # Clone and build gn
-  && git clone https://gn.googlesource.com/gn /tmp/gn \
-  && git -C /tmp/gn checkout ${GN_COMMIT} \
-  && cd /tmp/gn \
-  && python build/gen.py --no-sysroot \
-  && ninja -C out \
-  && cp -f /tmp/gn/out/gn /usr/local/bin/gn \
-
-  # Remove build dependencies and temporary files
-  && apk del .gn-build-dependencies \
-  && rm -rf /tmp/* /var/tmp/* /var/cache/apk/*
-
+RUN apk update \
+    apk upgrade
+RUN apk add --no-cache --virtual .gyp python3 make g++
+RUN ln -sf python3 /usr/bin/python
+RUN apk add tini
+RUN apk add clang
+RUN apk add curl
+RUN apk add git
+RUN apk add ninja
+RUN apk add tar
+RUN apk add xz
+RUN git clone https://gn.googlesource.com/gn
+RUN python gn/build/gen.py
+RUN ninja -C gn/out
+RUN cp -f gn/out/gn /usr/local/bin/gn
 #
 # STEP 2
 # Use depot_tools to fetch the V8 source and dependencies
@@ -64,32 +45,20 @@ RUN \
 #
 FROM debian as source
 
-RUN \
-  set -x && \
-  apt-get update && \
-  apt-get install -y \
-    git \
-    curl \
-    python && \
-
+RUN set -x
+RUN apt-get update
+RUN apt-get upgrade
+RUN apt-get install -y git
+RUN apt-get install -y curl
+RUN apt-get install -y python3
+RUN apt-get install -y xz-utils
+RUN ln -sf python3 /usr/bin/python
   # Clone depot_tools
-  git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git /tmp/depot_tools && \
-  PATH=$PATH:/tmp/depot_tools && \
-
+RUN git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git /tmp/depot_tools && \
+PATH=$PATH:/tmp/depot_tools
   # fetch V8
-  cd /tmp && \
-  fetch v8 && \
-  cd /tmp/v8 && \
-  gclient sync && \
-
-  # cleanup
-  apt-get remove --purge -y \
-    git \
-    curl \
-    python && \
-  apt-get autoremove -y && \
-  rm -rf /var/lib/apt/lists/*
-
+RUN cd /tmp && /tmp/depot_tools/fetch v8
+RUN cd /tmp/v8 && /tmp/depot_tools/gclient sync
 #
 # STEP 3
 # Build V8 for alpine
@@ -99,9 +68,10 @@ FROM alpine:latest as v8
 COPY --from=source /tmp/v8 /tmp/v8
 COPY --from=gn-builder /usr/local/bin/gn /tmp/v8/buildtools/linux64/gn
 
+RUN apk update \
+    apk upgrade
 RUN \
-  apk add --update --no-cache .v8-build-dependencies \
-    curl \
+  apk add --update --no-cache curl \
     g++ \
     gcc \
     glib-dev \
@@ -112,11 +82,10 @@ RUN \
     ninja \
     python3 \
     tar \
-    xz \
-  && ln -sf python3 /usr/bin/python \
-  # Configure our V8 build
-  && cd /tmp/v8 && \
-  ./tools/dev/v8gen.py x64.release -- \
+    xz
+RUN ln -sf python3 /usr/bin/python
+RUN cd /tmp/v8 && \
+  /tmp/v8/tools/dev/v8gen.py x64.release -- \
     binutils_path=\"/usr/bin\" \
     target_os=\"linux\" \
     target_cpu=\"x64\" \
@@ -138,17 +107,11 @@ RUN \
     v8_enable_gdbjit=false \
     v8_static_library=true \
     v8_experimental_extra_library_files=[] \
-    v8_extra_library_files=[] \
-
+    v8_extra_library_files=[]
   # Build V8
-  && ninja -C out.gn/x64.release -j $(getconf _NPROCESSORS_ONLN) \
-
+RUN cd /tmp/v8 && ninja -C out.gn/x64.release -j $(getconf _NPROCESSORS_ONLN)
   # Brag
-  && find /tmp/v8/out.gn/x64.release -name '*.a' \
-
-  # clean up
-  && apk del .v8-build-dependencies
-
+RUN find /tmp/v8/out.gn/x64.release -name '*.a'
 #
 # STEP 4
 # Provide slim image with V8
