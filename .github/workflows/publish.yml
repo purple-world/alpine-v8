@@ -1,0 +1,31 @@
+name: Publish
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Build the Docker image
+      run: docker build -t purpleworld/alpine-v8:$(date +%s) .
+      
+    - name: Docker Login
+      # You may pin to the exact commit or the version.
+      # uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+      uses: docker/login-action@v2.0.0
+      with:
+        # Server address of Docker registry. If not set then will default to Docker Hub
+        registry: purpleworld
+        # Password or personal access token used to log against the Docker registry
+        password: ${{ secrets.DOCKER_TOKEN }}
+        
+    - name: Push to dockerhub
+      run: docker push purpleworld/alpine-v8:$(date +%s)
