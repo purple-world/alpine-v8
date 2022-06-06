@@ -15,10 +15,10 @@ jobs:
       uses: actions/checkout@v3
       
     - name: Build the Docker image
-      run: docker build -t purpleworld/alpine-v8:$(date +%s) .
+      run: docker build -t purpleworld/alpine-v8:main .
 
     - name: login to dockerhub
       run: echo ${{ secrets.DOCKER_TOKEN }} | docker login -u purpleworld --password-stdin
         
     - name: Push to dockerhub
-      run: docker push purpleworld/alpine-v8:$(date +%s)
+      run: docker push purpleworld/alpine-v8:main
